@@ -20,7 +20,11 @@ services:
       start_period: 20s
     networks:
       - financeiro-adv-network
+      - proxy-network
 
 networks:
   financeiro-adv-network:
     name: financeiro-adv-network
+  proxy-network:
+    external: true
+    name: fortech_fortech
