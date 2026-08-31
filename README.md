@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GR Finance
 
-## Getting Started
+Sistema de gestão financeira para escritórios e equipes, com controle de lançamentos, viagens, prestação de contas, funcionários e autenticação integrada ao Supabase.
 
-First, run the development server:
+## Funcionalidades
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Dashboard financeiro
+- Receitas, despesas e lançamentos pendentes
+- Categorias, formas de pagamento e comprovantes
+- Viagens, rotas, quilometragem e prestação de contas
+- Cadastro e vínculo de funcionários e voluntários
+- Autenticação e persistência de dados com Supabase
+- Interface responsiva com identidade visual azul-marinho e dourado
+
+## Tecnologias
+
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+- Supabase
+- Docker e Docker Compose
+
+## Desenvolvimento
+
+Crie o arquivo `.env.local` com as variáveis públicas do Supabase:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sua-chave-publicavel
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Instale as dependências e inicie o servidor:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+A aplicação ficará disponível em `http://localhost:3000`.
 
-## Learn More
+## Docker
 
-To learn more about Next.js, take a look at the following resources:
+Na VPS, o Compose publica a aplicação somente em `127.0.0.1:3002`, permitindo sua exposição segura por um proxy reverso:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+docker compose up -d --build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Consulte [DEPLOY_VPS.md](DEPLOY_VPS.md) para as instruções de implantação e [SUPABASE.md](SUPABASE.md) para a configuração do banco de dados.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> Nunca envie `.env.local`, chaves secretas ou a chave `service_role` para o repositório.
