@@ -41,7 +41,7 @@ A aplicação ficará disponível em `http://localhost:3000`.
 
 ## Docker
 
-Na VPS, o Compose publica a aplicação somente em `127.0.0.1:3002`, permitindo sua exposição segura por um proxy reverso:
+Na VPS, o container compartilha a rede Docker do proxy reverso e não publica portas diretamente no host:
 
 ```bash
 docker compose up -d --build

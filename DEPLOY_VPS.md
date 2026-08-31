@@ -1,14 +1,14 @@
 # Deploy em VPS com outros projetos
 
-O contêiner publica somente `127.0.0.1:3002`, portanto não disputa as portas públicas 80/443 com os outros projetos. O Nginx/Caddy existente recebe o domínio e encaminha para essa porta.
+O contêiner não publica portas no host. Ele compartilha a rede externa `fortech_fortech` com o Nginx Proxy Manager, que encaminha o domínio diretamente para `financeiro-adv:3000`.
 
-## 1. Conferir a porta na VPS
+## 1. Conferir a rede do proxy na VPS
 
 ```bash
-sudo ss -lntp | grep ':3002'
+docker network inspect fortech_fortech
 ```
 
-Sem saída significa que a porta está livre. Se estiver ocupada, altere `APP_PORT` no `.env.production` e também o `proxy_pass` do Nginx.
+O Nginx Proxy Manager e o GR Finance precisam participar dessa mesma rede.
 
 ## 2. Preparar variáveis
 
@@ -26,7 +26,7 @@ docker compose --env-file .env.production build
 docker compose --env-file .env.production up -d
 docker compose ps
 docker compose logs --tail=100 financeiro-adv
-curl -I http://127.0.0.1:3002/login
+docker exec financeiro-adv wget -q --spider http://127.0.0.1:3000/login
 ```
 
 ## 4. Nginx
