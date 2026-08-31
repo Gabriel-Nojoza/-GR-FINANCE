@@ -41,7 +41,7 @@ A aplicação ficará disponível em `http://localhost:3000`.
 
 ## Docker
 
-Na VPS, o container compartilha a rede Docker do proxy reverso e não publica portas diretamente no host:
+Na VPS, o container publica temporariamente a porta `3003` e também compartilha a rede Docker do proxy reverso:
 
 ```bash
 docker compose up -d --build
