@@ -56,12 +56,21 @@ export default function LoginPage() {
         priority
         unoptimized
         sizes="100vw"
-        className="login-cover-motion object-cover object-center"
+        className="login-cover-motion hidden object-cover object-center md:block"
+      />
+      <Image
+        src="/capa-mobile-4k.webp"
+        alt="GR Finance"
+        fill
+        priority
+        unoptimized
+        sizes="100vw"
+        className="login-cover-motion object-cover object-center md:hidden"
       />
       <div className="absolute inset-0 bg-[#061126]/25 lg:bg-gradient-to-r lg:from-transparent lg:via-[#061126]/10 lg:to-[#061126]/45" />
       <div className="login-gold-glow" aria-hidden="true" />
 
-      <section className="relative z-10 flex min-h-screen items-center justify-center p-6 lg:justify-end lg:px-[10vw]">
+      <section className="relative z-10 flex min-h-screen items-start justify-center px-6 pb-8 pt-[45vh] md:items-center md:p-6 lg:justify-end lg:px-[10vw]">
         <form
           onSubmit={entrar}
           className="login-form-enter w-full max-w-sm text-white"
