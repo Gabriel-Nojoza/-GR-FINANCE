@@ -31,6 +31,8 @@ export type Viagem = {
   km_inicial: number
   km_final: number
   custo_km: number
+  quantidade_diarias: number
+  valor_diaria: number
   pedagios: number
   combustivel: number
   alimentacao: number
