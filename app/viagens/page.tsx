@@ -57,6 +57,7 @@ export default function ViagensPage() {
   const [modal, setModal] = useState(false);
   const [sidebar, setSidebar] = useState(false);
   const [busca, setBusca] = useState("");
+  const [mesSelecionado, setMesSelecionado] = useState("");
   const [mensagem, setMensagem] = useState("");
 
   async function carregar() {
@@ -107,6 +108,24 @@ export default function ViagensPage() {
       ),
     [viagens, busca],
   );
+  const pastasMensais = useMemo(() => {
+    const grupos = new Map<string, Viagem[]>();
+    filtradas.forEach((viagem) => {
+      const mes = viagem.data.slice(0, 7);
+      grupos.set(mes, [...(grupos.get(mes) ?? []), viagem]);
+    });
+    return [...grupos.entries()].sort(([a], [b]) => b.localeCompare(a));
+  }, [filtradas]);
+  const viagensVisiveis = mesSelecionado
+    ? filtradas.filter((viagem) => viagem.data.startsWith(mesSelecionado))
+    : filtradas;
+  const nomeMes = (mes: string) => {
+    const [ano, numero] = mes.split("-").map(Number);
+    return new Intl.DateTimeFormat("pt-BR", {
+      month: "long",
+      year: "numeric",
+    }).format(new Date(ano, numero - 1, 1));
+  };
   const n = (valor: string) => Number(valor.replace(",", ".")) || 0;
   const distanciaForm = Math.max(0, n(form.km_final) - n(form.km_inicial));
   const custoAluguelForm =
@@ -320,12 +339,54 @@ export default function ViagensPage() {
               </article>
             ))}
           </section>
+          <section className="mt-6">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h2 className="font-bold">Rotas por mês</h2>
+                <p className="text-xs text-slate-500">
+                  Abra uma pasta para ver os clientes programados
+                </p>
+              </div>
+              {mesSelecionado && (
+                <button
+                  onClick={() => setMesSelecionado("")}
+                  className="text-sm font-medium text-[#9a6f19]"
+                >
+                  Mostrar todos
+                </button>
+              )}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {pastasMensais.map(([mes, registros]) => {
+                const clientesDoMes = new Set(
+                  registros.map((v) => v.cliente_id).filter(Boolean),
+                ).size;
+                return (
+                  <button
+                    key={mes}
+                    onClick={() => setMesSelecionado(mes)}
+                    className={`rounded-2xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 ${mesSelecionado === mes ? "border-amber-400 bg-amber-50" : "bg-white"}`}
+                  >
+                    <p className="font-bold capitalize">{nomeMes(mes)}</p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {registros.length} viagens • {clientesDoMes} clientes
+                    </p>
+                  </button>
+                );
+              })}
+              {!pastasMensais.length && (
+                <p className="text-sm text-slate-500">
+                  Cadastre uma viagem para criar a pasta do mês.
+                </p>
+              )}
+            </div>
+          </section>
           <section className="mt-6 overflow-hidden rounded-2xl border bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5">
               <div>
                 <h2 className="font-bold">Viagens cadastradas</h2>
                 <p className="text-xs text-slate-500">
-                  {filtradas.length} registros
+                  {viagensVisiveis.length} registros
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -362,12 +423,15 @@ export default function ViagensPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {filtradas.map((v) => (
+                  {viagensVisiveis.map((v) => (
                     <tr key={v.id}>
                       <td className="px-6 py-4">
                         <b>{v.motivo}</b>
                         <p className="text-xs text-slate-400">
                           {v.data} • {v.status}
+                        </p>
+                        <p className="mt-1 text-xs font-medium text-[#9a6f19]">
+                          Cliente: {clientes.find((cliente) => cliente.id === v.cliente_id)?.nome ?? "Não vinculado"}
                         </p>
                       </td>
                       <td>{v.voluntarios.join(", ")}</td>

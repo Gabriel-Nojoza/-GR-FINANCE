@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Eye, Menu, Plus, Search, Trash2, X } from "lucide-react";
+import { CalendarClock, Eye, Menu, Plus, Search, Trash2, X } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Cliente, Lancamento, Viagem } from "@/lib/financeiro-types";
 import { supabase, supabaseConfigurado } from "@/lib/supabase";
@@ -28,6 +28,16 @@ const vazio = {
   status: "Ativo" as Cliente["status"],
 };
 
+type MensagemAgendada = {
+  id: string;
+  cliente_id: string;
+  mensagem: string;
+  template_nome: string;
+  agendada_para: string;
+  status: "Pendente" | "Processando" | "Enviada" | "Erro" | "Cancelada";
+  erro?: string | null;
+};
+
 function custoViagem(v: Viagem) {
   return (
     (Number(v.km_final) - Number(v.km_inicial)) * Number(v.custo_km) +
@@ -51,10 +61,21 @@ export default function ClientesPage() {
   const [sidebar, setSidebar] = useState(false);
   const [detalhe, setDetalhe] = useState<Cliente | null>(null);
   const [mensagem, setMensagem] = useState("");
+  const [mensagensAgendadas, setMensagensAgendadas] = useState<MensagemAgendada[]>([]);
+  const [agendamento, setAgendamento] = useState({
+    template_nome: "lembrete_atendimento",
+    mensagem: "",
+    agendada_para: "",
+  });
 
   async function carregar() {
     if (!supabase) return;
-    const [{ data: pessoas }, { data: financeiros }, { data: deslocamentos }] =
+    const [
+      { data: pessoas },
+      { data: financeiros },
+      { data: deslocamentos },
+      { data: mensagensProgramadas },
+    ] =
       await Promise.all([
         supabase.from("clientes").select("*").order("nome"),
         supabase
@@ -62,10 +83,15 @@ export default function ClientesPage() {
           .select("*")
           .order("data", { ascending: false }),
         supabase.from("viagens").select("*").order("data", { ascending: false }),
+        supabase
+          .from("mensagens_agendadas")
+          .select("*")
+          .order("agendada_para", { ascending: false }),
       ]);
     setClientes((pessoas ?? []) as Cliente[]);
     setLancamentos((financeiros ?? []) as Lancamento[]);
     setViagens((deslocamentos ?? []) as Viagem[]);
+    setMensagensAgendadas((mensagensProgramadas ?? []) as MensagemAgendada[]);
   }
 
   useEffect(() => {
@@ -130,12 +156,43 @@ export default function ClientesPage() {
     await carregar();
   }
 
+  async function agendarMensagem(evento: FormEvent) {
+    evento.preventDefault();
+    if (
+      !supabase ||
+      !detalhe ||
+      !detalhe.aceita_whatsapp ||
+      !numeroWhatsApp ||
+      !agendamento.template_nome.trim() ||
+      !agendamento.agendada_para
+    )
+      return;
+    const { error } = await supabase.from("mensagens_agendadas").insert({
+      cliente_id: detalhe.id,
+      telefone: numeroWhatsApp,
+      template_nome: agendamento.template_nome.trim(),
+      mensagem: agendamento.mensagem.trim(),
+      agendada_para: new Date(agendamento.agendada_para).toISOString(),
+    });
+    if (error) return setMensagem(error.message);
+    setAgendamento({
+      template_nome: "lembrete_atendimento",
+      mensagem: "",
+      agendada_para: "",
+    });
+    setMensagem("Mensagem agendada com sucesso.");
+    await carregar();
+  }
+
   const resumoDetalhe = detalhe ? gastosCliente(detalhe.id) : null;
   const telefoneNumerico = detalhe?.telefone.replace(/\D/g, "") ?? "";
   const numeroWhatsApp =
     telefoneNumerico.length === 10 || telefoneNumerico.length === 11
       ? `55${telefoneNumerico}`
       : telefoneNumerico;
+  const mensagensDoCliente = detalhe
+    ? mensagensAgendadas.filter((item) => item.cliente_id === detalhe.id)
+    : [];
 
   return (
     <div className="min-h-screen bg-[#f7f5ef] text-[#07142e]">
@@ -279,6 +336,22 @@ export default function ClientesPage() {
             <div className="overflow-hidden rounded-xl border">
               {resumoDetalhe.deslocamentos.map((item) => <div key={item.id} className="flex justify-between gap-4 border-b p-3 text-sm last:border-0"><span>{item.data} • {item.motivo}<small className="block text-slate-500">{item.origem} → {item.destino} • {item.transporte}</small></span><b>{moeda.format(custoViagem(item))}</b></div>)}
               {!resumoDetalhe.deslocamentos.length && <p className="p-4 text-sm text-slate-500">Nenhuma viagem vinculada.</p>}
+            </div>
+            <div className="mt-6 rounded-2xl border bg-slate-50 p-4">
+              <h3 className="flex items-center gap-2 font-bold"><CalendarClock size={18} /> Agendar mensagem automática</h3>
+              {!detalhe.aceita_whatsapp || !numeroWhatsApp ? (
+                <p className="mt-2 text-sm text-amber-800">Cadastre um telefone e marque a autorização de WhatsApp para habilitar o agendamento.</p>
+              ) : (
+                <form onSubmit={agendarMensagem} className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label><span className="mb-1 block text-xs font-medium">Modelo aprovado no WhatsApp</span><input required className="campo" value={agendamento.template_nome} onChange={(e) => setAgendamento({ ...agendamento, template_nome: e.target.value })} /></label>
+                  <label><span className="mb-1 block text-xs font-medium">Data e horário</span><input required type="datetime-local" className="campo" value={agendamento.agendada_para} onChange={(e) => setAgendamento({ ...agendamento, agendada_para: e.target.value })} /></label>
+                  <label className="sm:col-span-2"><span className="mb-1 block text-xs font-medium">Texto da variável do modelo</span><textarea required rows={2} className="w-full rounded-xl border bg-white p-3 text-sm outline-none focus:border-amber-500" placeholder="Ex.: Lembramos que sua visita está marcada para amanhã às 09:00." value={agendamento.mensagem} onChange={(e) => setAgendamento({ ...agendamento, mensagem: e.target.value })} /></label>
+                  <button className="rounded-xl bg-[#b88b32] px-4 py-2 text-sm font-semibold text-white sm:col-span-2">Programar mensagem</button>
+                </form>
+              )}
+              <div className="mt-4 space-y-2">
+                {mensagensDoCliente.map((item) => <div key={item.id} className="flex flex-wrap justify-between gap-2 rounded-xl border bg-white p-3 text-sm"><span>{new Date(item.agendada_para).toLocaleString("pt-BR")} • {item.mensagem}</span><b className={item.status === "Enviada" ? "text-emerald-600" : item.status === "Erro" ? "text-red-600" : "text-amber-700"}>{item.status}</b></div>)}
+              </div>
             </div>
             <div className="mt-6 flex flex-wrap justify-between gap-3 border-t pt-5"><button onClick={() => excluir(detalhe)} className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm text-red-600 hover:bg-red-50"><Trash2 size={17} /> Excluir cliente</button><div className="flex gap-2">{numeroWhatsApp && detalhe.aceita_whatsapp && <a href={`https://wa.me/${numeroWhatsApp}`} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-600 px-5 py-2 text-white hover:bg-emerald-700">Enviar WhatsApp</a>}<button onClick={() => setDetalhe(null)} className="rounded-xl bg-[#07142e] px-5 py-2 text-white">Fechar</button></div></div>
           </div>
