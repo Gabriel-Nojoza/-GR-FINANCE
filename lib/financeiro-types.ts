@@ -65,6 +65,7 @@ export type Cliente = {
   documento: string
   email: string
   telefone: string
+  aceita_whatsapp: boolean
   cep: string
   endereco: string
   numero: string

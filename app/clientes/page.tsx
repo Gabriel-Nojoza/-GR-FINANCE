@@ -16,6 +16,7 @@ const vazio = {
   documento: "",
   email: "",
   telefone: "",
+  aceita_whatsapp: false,
   cep: "",
   endereco: "",
   numero: "",
@@ -130,6 +131,11 @@ export default function ClientesPage() {
   }
 
   const resumoDetalhe = detalhe ? gastosCliente(detalhe.id) : null;
+  const telefoneNumerico = detalhe?.telefone.replace(/\D/g, "") ?? "";
+  const numeroWhatsApp =
+    telefoneNumerico.length === 10 || telefoneNumerico.length === 11
+      ? `55${telefoneNumerico}`
+      : telefoneNumerico;
 
   return (
     <div className="min-h-screen bg-[#f7f5ef] text-[#07142e]">
@@ -234,7 +240,7 @@ export default function ClientesPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Campo titulo="Nome/Razão social" duplo><input required className="campo" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></Campo>
               <Campo titulo="CPF/CNPJ"><input required className="campo" value={form.documento} onChange={(e) => setForm({ ...form, documento: e.target.value })} /></Campo>
-              <Campo titulo="Telefone"><input className="campo" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} /></Campo>
+              <Campo titulo="Telefone/WhatsApp"><input type="tel" className="campo" placeholder="(85) 99999-9999" value={form.telefone} onChange={(e) => setForm({ ...form, telefone: e.target.value })} /></Campo>
               <Campo titulo="E-mail"><input type="email" className="campo" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Campo>
               <Campo titulo="CEP"><input className="campo" value={form.cep} onChange={(e) => setForm({ ...form, cep: e.target.value })} /></Campo>
               <Campo titulo="Endereço" duplo><input className="campo" value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} /></Campo>
@@ -244,6 +250,7 @@ export default function ClientesPage() {
               <Campo titulo="Cidade"><input required className="campo" value={form.cidade} onChange={(e) => setForm({ ...form, cidade: e.target.value })} /></Campo>
               <Campo titulo="Estado (UF)"><input required maxLength={2} className="campo uppercase" value={form.estado} onChange={(e) => setForm({ ...form, estado: e.target.value })} /></Campo>
               <Campo titulo="Status"><select className="campo bg-white" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Cliente["status"] })}><option>Ativo</option><option>Inativo</option></select></Campo>
+              <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={form.aceita_whatsapp} onChange={(e) => setForm({ ...form, aceita_whatsapp: e.target.checked })} /> Cliente autoriza o recebimento de mensagens pelo WhatsApp</label>
               <Campo titulo="Observações" duplo><textarea rows={3} className="w-full rounded-xl border p-3 text-sm outline-none focus:border-amber-500" value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></Campo>
             </div>
             <div className="mt-6 flex justify-end gap-2 border-t pt-5"><button type="button" onClick={() => setModal(false)} className="rounded-xl border px-4 py-2">Cancelar</button><button className="rounded-xl bg-[#b88b32] px-5 py-2 font-semibold text-white hover:bg-[#9f7529]">Salvar cliente</button></div>
@@ -273,7 +280,7 @@ export default function ClientesPage() {
               {resumoDetalhe.deslocamentos.map((item) => <div key={item.id} className="flex justify-between gap-4 border-b p-3 text-sm last:border-0"><span>{item.data} • {item.motivo}<small className="block text-slate-500">{item.origem} → {item.destino} • {item.transporte}</small></span><b>{moeda.format(custoViagem(item))}</b></div>)}
               {!resumoDetalhe.deslocamentos.length && <p className="p-4 text-sm text-slate-500">Nenhuma viagem vinculada.</p>}
             </div>
-            <div className="mt-6 flex justify-between border-t pt-5"><button onClick={() => excluir(detalhe)} className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm text-red-600 hover:bg-red-50"><Trash2 size={17} /> Excluir cliente</button><button onClick={() => setDetalhe(null)} className="rounded-xl bg-[#07142e] px-5 py-2 text-white">Fechar</button></div>
+            <div className="mt-6 flex flex-wrap justify-between gap-3 border-t pt-5"><button onClick={() => excluir(detalhe)} className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm text-red-600 hover:bg-red-50"><Trash2 size={17} /> Excluir cliente</button><div className="flex gap-2">{numeroWhatsApp && detalhe.aceita_whatsapp && <a href={`https://wa.me/${numeroWhatsApp}`} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-600 px-5 py-2 text-white hover:bg-emerald-700">Enviar WhatsApp</a>}<button onClick={() => setDetalhe(null)} className="rounded-xl bg-[#07142e] px-5 py-2 text-white">Fechar</button></div></div>
           </div>
         </div>
       )}
