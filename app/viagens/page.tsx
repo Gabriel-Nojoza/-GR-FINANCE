@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { exportarExcel, exportarPdf } from "@/lib/exportar";
-import { FuncionarioResumo, Viagem } from "@/lib/financeiro-types";
+import { Cliente, FuncionarioResumo, Viagem } from "@/lib/financeiro-types";
 import {
   enviarComprovante,
   supabase,
@@ -27,6 +27,7 @@ const moeda = new Intl.NumberFormat("pt-BR", {
 });
 const vazio = {
   motivo: "",
+  cliente_id: "",
   voluntario_ids: [] as string[],
   origem: "",
   destino: "",
@@ -50,6 +51,7 @@ const vazio = {
 export default function ViagensPage() {
   const [viagens, setViagens] = useState<Viagem[]>([]);
   const [funcionarios, setFuncionarios] = useState<FuncionarioResumo[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [form, setForm] = useState(vazio);
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [modal, setModal] = useState(false);
@@ -59,7 +61,7 @@ export default function ViagensPage() {
 
   async function carregar() {
     if (!supabase) return;
-    const [{ data: registros }, { data: pessoas }] = await Promise.all([
+    const [{ data: registros }, { data: pessoas }, { data: clientesAtivos }] = await Promise.all([
       supabase
         .from("viagens")
         .select("*, viagem_voluntarios(funcionario_id, funcionarios(nome))")
@@ -67,6 +69,11 @@ export default function ViagensPage() {
       supabase
         .from("funcionarios")
         .select("id,nome,status")
+        .eq("status", "Ativo")
+        .order("nome"),
+      supabase
+        .from("clientes")
+        .select("*")
         .eq("status", "Ativo")
         .order("nome"),
     ]);
@@ -83,6 +90,7 @@ export default function ViagensPage() {
     });
     setViagens(normalizadas);
     setFuncionarios((pessoas ?? []) as FuncionarioResumo[]);
+    setClientes((clientesAtivos ?? []) as Cliente[]);
   }
 
   useEffect(() => {
@@ -158,6 +166,7 @@ export default function ViagensPage() {
         : null;
       const registro = {
         motivo: form.motivo.trim(),
+        cliente_id: form.cliente_id || null,
         origem: form.origem.trim(),
         destino: form.destino.trim(),
         data: form.data,
@@ -445,6 +454,22 @@ export default function ViagensPage() {
                   value={form.data}
                   onChange={(e) => setForm({ ...form, data: e.target.value })}
                 />
+              </Campo>
+              <Campo titulo="Cliente">
+                <select
+                  className="campo bg-white"
+                  value={form.cliente_id}
+                  onChange={(e) =>
+                    setForm({ ...form, cliente_id: e.target.value })
+                  }
+                >
+                  <option value="">Sem cliente vinculado</option>
+                  {clientes.map((cliente) => (
+                    <option value={cliente.id} key={cliente.id}>
+                      {cliente.nome} — {cliente.documento}
+                    </option>
+                  ))}
+                </select>
               </Campo>
               <Campo titulo="Transporte">
                 <select

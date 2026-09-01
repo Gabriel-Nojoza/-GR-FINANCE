@@ -15,6 +15,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { exportarExcel, exportarPdf } from "@/lib/exportar";
 import {
   Categoria,
+  Cliente,
   FormaPagamento,
   FuncionarioResumo,
   Lancamento,
@@ -42,6 +43,7 @@ const moeda = new Intl.NumberFormat("pt-BR", {
 });
 const vazio = {
   descricao: "",
+  cliente_id: "",
   voluntario_id: "",
   categoria: "Custas",
   data: hoje,
@@ -56,6 +58,7 @@ const vazio = {
 export default function LancamentosPage() {
   const [itens, setItens] = useState<Lancamento[]>([]);
   const [funcionarios, setFuncionarios] = useState<FuncionarioResumo[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>(categoriasPadrao);
   const [form, setForm] = useState(vazio);
   const [arquivo, setArquivo] = useState<File | null>(null);
@@ -71,7 +74,12 @@ export default function LancamentosPage() {
 
   async function carregar() {
     if (!supabase) return;
-    const [{ data: lancamentos }, { data: pessoas }, { data: cats }] =
+    const [
+      { data: lancamentos },
+      { data: pessoas },
+      { data: cats },
+      { data: clientesAtivos },
+    ] =
       await Promise.all([
         supabase
           .from("lancamentos")
@@ -83,9 +91,15 @@ export default function LancamentosPage() {
           .eq("status", "Ativo")
           .order("nome"),
         supabase.from("categorias").select("*").order("nome"),
+        supabase
+          .from("clientes")
+          .select("*")
+          .eq("status", "Ativo")
+          .order("nome"),
       ]);
     setItens((lancamentos ?? []) as Lancamento[]);
     setFuncionarios((pessoas ?? []) as FuncionarioResumo[]);
+    setClientes((clientesAtivos ?? []) as Cliente[]);
     if (cats?.length) setCategorias(cats as Categoria[]);
   }
 
@@ -135,6 +149,7 @@ export default function LancamentosPage() {
         : null;
       const registro = {
         ...form,
+        cliente_id: form.cliente_id || null,
         descricao: form.descricao.trim(),
         voluntario: pessoa.nome,
         valor,
@@ -430,6 +445,22 @@ export default function LancamentosPage() {
                   {funcionarios.map((p) => (
                     <option value={p.id} key={p.id}>
                       {p.nome}
+                    </option>
+                  ))}
+                </select>
+              </Campo>
+              <Campo titulo="Cliente">
+                <select
+                  className="campo bg-white"
+                  value={form.cliente_id}
+                  onChange={(e) =>
+                    setForm({ ...form, cliente_id: e.target.value })
+                  }
+                >
+                  <option value="">Sem cliente vinculado</option>
+                  {clientes.map((cliente) => (
+                    <option value={cliente.id} key={cliente.id}>
+                      {cliente.nome} — {cliente.documento}
                     </option>
                   ))}
                 </select>

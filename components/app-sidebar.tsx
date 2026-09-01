@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Map,
+  ContactRound,
   ReceiptText,
   Settings,
   Users,
@@ -17,6 +18,7 @@ const links = [
   { href: "/", nome: "Dashboard", icon: LayoutDashboard },
   { href: "/lancamentos", nome: "Lançamentos", icon: ReceiptText },
   { href: "/viagens", nome: "Viagens e rotas", icon: Map },
+  { href: "/clientes", nome: "Clientes", icon: ContactRound },
   { href: "/funcionarios", nome: "Funcionários", icon: Users },
 ];
 

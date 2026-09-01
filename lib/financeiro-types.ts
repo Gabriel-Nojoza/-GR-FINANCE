@@ -4,6 +4,7 @@ export type FormaPagamento = "PIX" | "Dinheiro" | "Cartão" | "Transferência"
 
 export type Lancamento = {
   id: string
+  cliente_id?: string | null
   descricao: string
   voluntario: string
   voluntario_id?: string | null
@@ -21,6 +22,7 @@ export type Lancamento = {
 
 export type Viagem = {
   id: string
+  cliente_id?: string | null
   motivo: string
   voluntarios: string[]
   voluntario_ids?: string[]
@@ -55,4 +57,22 @@ export type Categoria = {
   id: string
   nome: string
   cor: string
+}
+
+export type Cliente = {
+  id: string
+  nome: string
+  documento: string
+  email: string
+  telefone: string
+  cep: string
+  endereco: string
+  numero: string
+  complemento: string
+  bairro: string
+  cidade: string
+  estado: string
+  observacoes: string
+  status: "Ativo" | "Inativo"
+  created_at?: string
 }
