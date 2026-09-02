@@ -35,7 +35,7 @@ const vazio = {
   transporte: "Carro",
   km_inicial: "0",
   km_final: "0",
-  custo_km: "0,80",
+  custo_km: "0",
   quantidade_diarias: "1",
   valor_diaria: "0",
   pedagios: "0",
@@ -127,20 +127,17 @@ export default function ViagensPage() {
     }).format(new Date(ano, numero - 1, 1));
   };
   const n = (valor: string) => Number(valor.replace(",", ".")) || 0;
-  const distanciaForm = Math.max(0, n(form.km_final) - n(form.km_inicial));
   const custoAluguelForm =
     form.transporte === "Carro alugado"
       ? n(form.quantidade_diarias) * n(form.valor_diaria)
       : 0;
   const custoForm =
-    distanciaForm * n(form.custo_km) +
     custoAluguelForm +
     n(form.pedagios) +
     n(form.combustivel) +
     n(form.alimentacao) +
     n(form.hospedagem);
   const custoTotal = (v: Viagem) =>
-    (v.km_final - v.km_inicial) * v.custo_km +
     (v.transporte === "Carro alugado"
       ? (v.quantidade_diarias ?? 0) * (v.valor_diaria ?? 0)
       : 0) +
@@ -150,7 +147,6 @@ export default function ViagensPage() {
     v.hospedagem;
   const resumo = useMemo(
     () => ({
-      distancia: filtradas.reduce((s, v) => s + v.km_final - v.km_inicial, 0),
       custo: filtradas.reduce((s, v) => s + custoTotal(v), 0),
       adiantamento: filtradas.reduce((s, v) => s + v.adiantamento, 0),
       pendentes: filtradas.filter((v) => v.prestacao_contas === "Pendente")
@@ -173,7 +169,6 @@ export default function ViagensPage() {
     if (
       !form.motivo.trim() ||
       !form.voluntario_ids.length ||
-      n(form.km_final) < n(form.km_inicial) ||
       (form.transporte === "Carro alugado" &&
         (n(form.quantidade_diarias) < 1 || n(form.valor_diaria) <= 0))
     )
@@ -271,7 +266,6 @@ export default function ViagensPage() {
           v.transporte === "Carro alugado"
             ? (v.quantidade_diarias ?? 0) * (v.valor_diaria ?? 0)
             : 0,
-        Distância: v.km_final - v.km_inicial,
         Custo: custoTotal(v),
         Adiantamento: v.adiantamento,
         Prestação: v.prestacao_contas,
@@ -323,9 +317,8 @@ export default function ViagensPage() {
               {mensagem}
             </p>
           )}
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-4 sm:grid-cols-3">
             {[
-              ["Distância", `${resumo.distancia} km`],
               ["Custo total", moeda.format(resumo.custo)],
               ["Adiantamentos", moeda.format(resumo.adiantamento)],
               ["Prestações pendentes", String(resumo.pendentes)],
@@ -409,14 +402,13 @@ export default function ViagensPage() {
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1050px] text-left text-sm">
+              <table className="w-full min-w-[950px] text-left text-sm">
                 <thead className="bg-slate-50 text-xs uppercase text-slate-400">
                   <tr>
                     <th className="px-6 py-3">Viagem</th>
                     <th>Voluntários</th>
                     <th>Rota</th>
                     <th>Transporte</th>
-                    <th>Km</th>
                     <th>Prestação</th>
                     <th className="text-right">Custo</th>
                     <th />
@@ -441,7 +433,6 @@ export default function ViagensPage() {
                         {v.destino}
                       </td>
                       <td>{v.transporte}</td>
-                      <td>{v.km_final - v.km_inicial} km</td>
                       <td>{v.prestacao_contas}</td>
                       <td className="text-right font-bold">
                         {moeda.format(custoTotal(v))}
@@ -590,38 +581,6 @@ export default function ViagensPage() {
                   </Campo>
                 </>
               )}
-              <Campo titulo="Km inicial">
-                <input
-                  type="number"
-                  min="0"
-                  className="campo"
-                  value={form.km_inicial}
-                  onChange={(e) =>
-                    setForm({ ...form, km_inicial: e.target.value })
-                  }
-                />
-              </Campo>
-              <Campo titulo="Km final">
-                <input
-                  type="number"
-                  min="0"
-                  className="campo"
-                  value={form.km_final}
-                  onChange={(e) =>
-                    setForm({ ...form, km_final: e.target.value })
-                  }
-                />
-              </Campo>
-              <Campo titulo="Custo por km">
-                <input
-                  inputMode="decimal"
-                  className="campo"
-                  value={form.custo_km}
-                  onChange={(e) =>
-                    setForm({ ...form, custo_km: e.target.value })
-                  }
-                />
-              </Campo>
               {(
                 [
                   "pedagios",
@@ -715,8 +674,6 @@ export default function ViagensPage() {
               </Campo>
             </div>
             <div className="mt-5 rounded-xl bg-slate-50 p-4 text-sm">
-              <b>Distância calculada:</b> {distanciaForm} km{" "}
-              <span className="mx-3">•</span>
               {form.transporte === "Carro alugado" && (
                 <>
                   <b>Aluguel:</b> {moeda.format(custoAluguelForm)}{" "}
