@@ -12,13 +12,12 @@ Deno.serve(async (request) => {
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
-  const token = Deno.env.get("WHATSAPP_ACCESS_TOKEN");
-  const phoneNumberId = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID");
-  const graphVersion = Deno.env.get("WHATSAPP_GRAPH_VERSION") ?? "v23.0";
-  const languageCode = Deno.env.get("WHATSAPP_TEMPLATE_LANGUAGE") ?? "pt_BR";
+  const evolutionUrl = Deno.env.get("EVOLUTION_API_URL")?.replace(/\/$/, "");
+  const evolutionApiKey = Deno.env.get("EVOLUTION_API_KEY");
+  const evolutionInstance = Deno.env.get("EVOLUTION_INSTANCE") ?? "gr-finance";
 
-  if (!token || !phoneNumberId) {
-    return Response.json({ error: "Credenciais do WhatsApp ausentes" }, { status: 500 });
+  if (!evolutionUrl || !evolutionApiKey) {
+    return Response.json({ error: "Credenciais da Evolution API ausentes" }, { status: 500 });
   }
 
   const { data: fila, error } = await supabase
@@ -44,24 +43,15 @@ Deno.serve(async (request) => {
 
     try {
       const body = {
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: item.telefone.replace(/\D/g, ""),
-        type: "template",
-        template: {
-          name: item.template_nome,
-          language: { code: languageCode },
-          components: item.mensagem
-            ? [{ type: "body", parameters: [{ type: "text", text: item.mensagem }] }]
-            : [],
-        },
+        number: item.telefone.replace(/\D/g, ""),
+        text: item.mensagem,
       };
       const resposta = await fetch(
-        `https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages`,
+        `${evolutionUrl}/message/sendText/${encodeURIComponent(evolutionInstance)}`,
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${token}`,
+            apikey: evolutionApiKey,
             "Content-Type": "application/json",
           },
           body: JSON.stringify(body),
@@ -74,7 +64,7 @@ Deno.serve(async (request) => {
         .update({
           status: "Enviada",
           enviada_em: new Date().toISOString(),
-          whatsapp_message_id: retorno.messages?.[0]?.id ?? null,
+          whatsapp_message_id: retorno.key?.id ?? retorno.message?.key?.id ?? null,
           erro: null,
           updated_at: new Date().toISOString(),
         })

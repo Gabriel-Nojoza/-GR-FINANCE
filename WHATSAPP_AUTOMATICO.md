@@ -1,62 +1,65 @@
-# WhatsApp automático
+# WhatsApp automático com Evolution API
 
-O sistema grava os agendamentos no Supabase. A Edge Function `enviar-whatsapp-agendado` consulta a fila e envia modelos aprovados pela WhatsApp Cloud API.
+O Supabase guarda os agendamentos. A Edge Function `enviar-whatsapp-agendado` consulta a fila e envia a mensagem pela instância `gr-finance` da Evolution API.
 
-## Pré-requisitos na Meta
+## 1. Instância da Evolution
 
-1. Criar um aplicativo Business e adicionar o produto WhatsApp.
-2. Cadastrar o número remetente.
-3. Criar e aprovar um modelo Utility em `pt_BR`, por exemplo `lembrete_atendimento`, com uma variável `{{1}}` no corpo.
-4. Obter o token permanente e o `Phone Number ID`.
+Crie uma instância separada chamada `gr-finance` na Evolution API e conecte o WhatsApp do escritório pelo QR Code. Não reutilize a instância de outro sistema.
 
-## Banco de dados
+## 2. Segredos do Supabase
 
-Execute `supabase/migrations/202609010004_mensagens_agendadas.sql` no SQL Editor.
-
-## Segredos da Edge Function
-
-Crie localmente um arquivo `.env.whatsapp` (ele é ignorado pelo Git):
+Crie localmente o arquivo `.env.whatsapp` (ignorado pelo Git):
 
 ```env
-WHATSAPP_ACCESS_TOKEN=token-permanente-da-meta
-WHATSAPP_PHONE_NUMBER_ID=id-do-numero
-WHATSAPP_GRAPH_VERSION=versao-indicada-pela-meta
-WHATSAPP_TEMPLATE_LANGUAGE=pt_BR
+EVOLUTION_API_URL=https://endereco-publico-da-evolution
+EVOLUTION_API_KEY=chave-da-evolution
+EVOLUTION_INSTANCE=gr-finance
 CRON_SECRET=uma-senha-aleatoria-longa
 ```
+
+A URL precisa ser acessível pela internet, pois a Edge Function do Supabase não consegue acessar `localhost` ou um endereço privado da VPS.
 
 Configure e publique:
 
 ```bash
 npx supabase login
-npx supabase link --project-ref SEU_PROJECT_REF
+npx supabase link --project-ref kycwxilbhfpvzgfxwnuw
 npx supabase secrets set --env-file .env.whatsapp
 npx supabase functions deploy enviar-whatsapp-agendado --no-verify-jwt
 ```
 
-## Cron a cada minuto
+## 3. Cron a cada minuto
 
-No SQL Editor, grave os três valores no Vault seguindo a documentação oficial:
+No SQL Editor, habilite as extensões e grave os valores no Vault. O valor de
+`gr_finance_cron_secret` precisa ser igual ao Secret `CRON_SECRET` da Edge Function:
 
 ```sql
-select vault.create_secret('https://SEU_PROJECT_REF.supabase.co', 'project_url');
-select vault.create_secret('SUA_CHAVE_PUBLICAVEL', 'publishable_key');
-select vault.create_secret('A_MESMA_SENHA_DE_CRON_SECRET', 'whatsapp_cron_secret');
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+create extension if not exists supabase_vault with schema vault;
+
+select vault.create_secret(
+  'https://kycwxilbhfpvzgfxwnuw.supabase.co',
+  'gr_finance_project_url'
+);
+select vault.create_secret(
+  'A_MESMA_SENHA_DE_CRON_SECRET',
+  'gr_finance_cron_secret'
+);
 ```
 
-Depois ative `pg_cron` e `pg_net` em Integrations e execute:
+Crie o job:
 
 ```sql
 select cron.schedule(
-  'enviar-whatsapp-agendado',
+  'gr-finance-enviar-whatsapp',
   '* * * * *',
   $$
   select net.http_post(
-    url := (select decrypted_secret from vault.decrypted_secrets where name = 'project_url') || '/functions/v1/enviar-whatsapp-agendado',
+    url := (select decrypted_secret from vault.decrypted_secrets where name = 'gr_finance_project_url') || '/functions/v1/enviar-whatsapp-agendado',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'apikey', (select decrypted_secret from vault.decrypted_secrets where name = 'publishable_key'),
-      'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'whatsapp_cron_secret')
+      'x-cron-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'gr_finance_cron_secret')
     ),
     body := jsonb_build_object('executado_em', now())
   );
@@ -64,4 +67,4 @@ select cron.schedule(
 );
 ```
 
-Nunca coloque o token da Meta em `NEXT_PUBLIC_*`, `.env.local` versionado ou código do frontend.
+Nunca coloque a API key da Evolution em `NEXT_PUBLIC_*`, no frontend ou em arquivos enviados ao GitHub.

@@ -163,7 +163,7 @@ export default function ClientesPage() {
       !detalhe ||
       !detalhe.aceita_whatsapp ||
       !numeroWhatsApp ||
-      !agendamento.template_nome.trim() ||
+      !agendamento.mensagem.trim() ||
       !agendamento.agendada_para
     )
       return;
@@ -343,9 +343,8 @@ export default function ClientesPage() {
                 <p className="mt-2 text-sm text-amber-800">Cadastre um telefone e marque a autorização de WhatsApp para habilitar o agendamento.</p>
               ) : (
                 <form onSubmit={agendarMensagem} className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <label><span className="mb-1 block text-xs font-medium">Modelo aprovado no WhatsApp</span><input required className="campo" value={agendamento.template_nome} onChange={(e) => setAgendamento({ ...agendamento, template_nome: e.target.value })} /></label>
-                  <label><span className="mb-1 block text-xs font-medium">Data e horário</span><input required type="datetime-local" className="campo" value={agendamento.agendada_para} onChange={(e) => setAgendamento({ ...agendamento, agendada_para: e.target.value })} /></label>
-                  <label className="sm:col-span-2"><span className="mb-1 block text-xs font-medium">Texto da variável do modelo</span><textarea required rows={2} className="w-full rounded-xl border bg-white p-3 text-sm outline-none focus:border-amber-500" placeholder="Ex.: Lembramos que sua visita está marcada para amanhã às 09:00." value={agendamento.mensagem} onChange={(e) => setAgendamento({ ...agendamento, mensagem: e.target.value })} /></label>
+                  <label className="sm:col-span-2"><span className="mb-1 block text-xs font-medium">Data e horário</span><input required type="datetime-local" className="campo" value={agendamento.agendada_para} onChange={(e) => setAgendamento({ ...agendamento, agendada_para: e.target.value })} /></label>
+                  <label className="sm:col-span-2"><span className="mb-1 block text-xs font-medium">Mensagem</span><textarea required rows={3} className="w-full rounded-xl border bg-white p-3 text-sm outline-none focus:border-amber-500" placeholder="Ex.: Olá! Lembramos que sua visita está marcada para amanhã às 09:00." value={agendamento.mensagem} onChange={(e) => setAgendamento({ ...agendamento, mensagem: e.target.value })} /></label>
                   <button className="rounded-xl bg-[#b88b32] px-4 py-2 text-sm font-semibold text-white sm:col-span-2">Programar mensagem</button>
                 </form>
               )}
