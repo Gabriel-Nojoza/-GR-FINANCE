@@ -3,7 +3,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { LocationAutocomplete } from "@/components/location-autocomplete";
 import {
+  CalendarPlus,
+  CheckCircle2,
   FileText,
+  Folder,
   Menu,
   Paperclip,
   Plus,
@@ -48,21 +51,35 @@ const vazio = {
   observacoes: "",
 };
 
+type Captacao = {
+  id: string;
+  cliente_id: string;
+  mes_referencia: string;
+  status: "Pendente" | "Concluída";
+  observacoes: string;
+  clientes: Pick<Cliente, "id" | "nome" | "telefone" | "cidade" | "estado"> | null;
+};
+
+const mesAtual = new Date().toISOString().slice(0, 7);
+
 export default function ViagensPage() {
   const [viagens, setViagens] = useState<Viagem[]>([]);
   const [funcionarios, setFuncionarios] = useState<FuncionarioResumo[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [captacoes, setCaptacoes] = useState<Captacao[]>([]);
   const [form, setForm] = useState(vazio);
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [modal, setModal] = useState(false);
   const [sidebar, setSidebar] = useState(false);
   const [busca, setBusca] = useState("");
   const [mesSelecionado, setMesSelecionado] = useState("");
+  const [modalCaptacao, setModalCaptacao] = useState(false);
+  const [captacaoForm, setCaptacaoForm] = useState({ cliente_id: "", mes: mesAtual, observacoes: "" });
   const [mensagem, setMensagem] = useState("");
 
   async function carregar() {
     if (!supabase) return;
-    const [{ data: registros }, { data: pessoas }, { data: clientesAtivos }] = await Promise.all([
+    const [{ data: registros }, { data: pessoas }, { data: clientesAtivos }, { data: captacoesDoBanco }] = await Promise.all([
       supabase
         .from("viagens")
         .select("*, viagem_voluntarios(funcionario_id, funcionarios(nome))")
@@ -77,6 +94,10 @@ export default function ViagensPage() {
         .select("*")
         .eq("status", "Ativo")
         .order("nome"),
+      supabase
+        .from("captacoes_clientes")
+        .select("*, clientes(id,nome,telefone,cidade,estado)")
+        .order("mes_referencia"),
     ]);
     const normalizadas = (registros ?? []).map((item) => {
       const relacoes = (item.viagem_voluntarios ?? []) as Array<{
@@ -92,6 +113,7 @@ export default function ViagensPage() {
     setViagens(normalizadas);
     setFuncionarios((pessoas ?? []) as FuncionarioResumo[]);
     setClientes((clientesAtivos ?? []) as Cliente[]);
+    setCaptacoes((captacoesDoBanco ?? []) as unknown as Captacao[]);
   }
 
   useEffect(() => {
@@ -109,16 +131,19 @@ export default function ViagensPage() {
     [viagens, busca],
   );
   const pastasMensais = useMemo(() => {
-    const grupos = new Map<string, Viagem[]>();
-    filtradas.forEach((viagem) => {
-      const mes = viagem.data.slice(0, 7);
-      grupos.set(mes, [...(grupos.get(mes) ?? []), viagem]);
-    });
-    return [...grupos.entries()].sort(([a], [b]) => b.localeCompare(a));
-  }, [filtradas]);
-  const viagensVisiveis = mesSelecionado
-    ? filtradas.filter((viagem) => viagem.data.startsWith(mesSelecionado))
-    : filtradas;
+    const meses = new Set<string>();
+    for (let indice = 0; indice < 6; indice++) {
+      const data = new Date();
+      data.setDate(1);
+      data.setMonth(data.getMonth() + indice);
+      meses.add(data.toISOString().slice(0, 7));
+    }
+    captacoes.forEach((item) => meses.add(item.mes_referencia.slice(0, 7)));
+    return [...meses].sort().map((mes) => [mes, captacoes.filter((item) => item.mes_referencia.startsWith(mes))] as const);
+  }, [captacoes]);
+  const captacoesDoMes = mesSelecionado
+    ? captacoes.filter((item) => item.mes_referencia.startsWith(mesSelecionado))
+    : [];
   const nomeMes = (mes: string) => {
     const [ano, numero] = mes.split("-").map(Number);
     return new Intl.DateTimeFormat("pt-BR", {
@@ -133,7 +158,6 @@ export default function ViagensPage() {
       : 0;
   const custoForm =
     custoAluguelForm +
-    n(form.pedagios) +
     n(form.combustivel) +
     n(form.alimentacao) +
     n(form.hospedagem);
@@ -194,7 +218,7 @@ export default function ViagensPage() {
             : 0,
         valor_diaria:
           form.transporte === "Carro alugado" ? n(form.valor_diaria) : 0,
-        pedagios: n(form.pedagios),
+        pedagios: 0,
         combustivel: n(form.combustivel),
         alimentacao: n(form.alimentacao),
         hospedagem: n(form.hospedagem),
@@ -249,6 +273,39 @@ export default function ViagensPage() {
     if (!confirm("Excluir esta viagem?")) return;
     if (supabase) await supabase.from("viagens").delete().eq("id", id);
     setViagens((atuais) => atuais.filter((v) => v.id !== id));
+  }
+  async function programarCaptacao(evento: FormEvent) {
+    evento.preventDefault();
+    if (!supabase || !captacaoForm.cliente_id || !captacaoForm.mes) return;
+    const { error } = await supabase.from("captacoes_clientes").insert({
+      cliente_id: captacaoForm.cliente_id,
+      mes_referencia: `${captacaoForm.mes}-01`,
+      observacoes: captacaoForm.observacoes.trim(),
+    });
+    if (error) {
+      setMensagem(error.code === "23505" ? "Esse cliente já está programado nesse mês." : error.message);
+      return;
+    }
+    setMesSelecionado(captacaoForm.mes);
+    setCaptacaoForm({ cliente_id: "", mes: captacaoForm.mes, observacoes: "" });
+    setModalCaptacao(false);
+    setMensagem("Cliente adicionado à pasta de captação.");
+    await carregar();
+  }
+  async function alternarCaptacao(item: Captacao) {
+    if (!supabase) return;
+    const concluida = item.status !== "Concluída";
+    await supabase.from("captacoes_clientes").update({
+      status: concluida ? "Concluída" : "Pendente",
+      concluida_em: concluida ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", item.id);
+    await carregar();
+  }
+  async function excluirCaptacao(id: string) {
+    if (!supabase || !confirm("Remover esse cliente da pasta do mês?")) return;
+    await supabase.from("captacoes_clientes").delete().eq("id", id);
+    await carregar();
   }
   const excel = () =>
     exportarExcel(
@@ -340,14 +397,7 @@ export default function ViagensPage() {
                   Abra uma pasta para ver os clientes programados
                 </p>
               </div>
-              {mesSelecionado && (
-                <button
-                  onClick={() => setMesSelecionado("")}
-                  className="text-sm font-medium text-[#9a6f19]"
-                >
-                  Mostrar todos
-                </button>
-              )}
+              <button onClick={() => setModalCaptacao(true)} className="flex items-center gap-2 rounded-xl bg-[#b88b32] px-4 py-2 text-sm font-semibold text-white"><CalendarPlus size={17} /> Programar captação</button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {pastasMensais.map(([mes, registros]) => {
@@ -360,26 +410,23 @@ export default function ViagensPage() {
                     onClick={() => setMesSelecionado(mes)}
                     className={`rounded-2xl border p-4 text-left shadow-sm transition hover:-translate-y-0.5 ${mesSelecionado === mes ? "border-amber-400 bg-amber-50" : "bg-white"}`}
                   >
+                    <Folder className="mb-3 text-[#b88b32]" fill="currentColor" size={28} />
                     <p className="font-bold capitalize">{nomeMes(mes)}</p>
                     <p className="mt-1 text-sm text-slate-500">
-                      {registros.length} viagens • {clientesDoMes} clientes
+                      {clientesDoMes} clientes • {registros.filter((item) => item.status === "Pendente").length} pendentes
                     </p>
                   </button>
                 );
               })}
-              {!pastasMensais.length && (
-                <p className="text-sm text-slate-500">
-                  Cadastre uma viagem para criar a pasta do mês.
-                </p>
-              )}
             </div>
+            {mesSelecionado && <div className="mt-4 overflow-hidden rounded-2xl border bg-white shadow-sm"><div className="border-b p-4"><h3 className="font-bold capitalize">Clientes para captação — {nomeMes(mesSelecionado)}</h3><p className="text-sm text-slate-500">{captacoesDoMes.length} clientes programados</p></div><div className="divide-y">{captacoesDoMes.map((item) => <div key={item.id} className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center"><div><p className="font-semibold">{item.clientes?.nome}</p><p className="text-sm text-slate-500">{item.clientes?.cidade} - {item.clientes?.estado} • {item.clientes?.telefone}</p>{item.observacoes && <p className="mt-1 text-xs text-slate-500">{item.observacoes}</p>}</div><div className="flex items-center gap-2"><button onClick={() => alternarCaptacao(item)} className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium ${item.status === "Concluída" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}`}><CheckCircle2 size={16} /> {item.status}</button><button onClick={() => excluirCaptacao(item.id)} className="rounded-xl p-2 text-red-500 hover:bg-red-50" aria-label="Remover"><Trash2 size={17} /></button></div></div>)}{!captacoesDoMes.length && <p className="p-6 text-sm text-slate-500">Nenhum cliente programado nesta pasta.</p>}</div></div>}
           </section>
           <section className="mt-6 overflow-hidden rounded-2xl border bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b p-5">
               <div>
                 <h2 className="font-bold">Viagens cadastradas</h2>
                 <p className="text-xs text-slate-500">
-                  {viagensVisiveis.length} registros
+                  {filtradas.length} registros
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -415,7 +462,7 @@ export default function ViagensPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {viagensVisiveis.map((v) => (
+                  {filtradas.map((v) => (
                     <tr key={v.id}>
                       <td className="px-6 py-4">
                         <b>{v.motivo}</b>
@@ -462,6 +509,19 @@ export default function ViagensPage() {
           </section>
         </div>
       </main>
+      {modalCaptacao && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
+          <form onSubmit={programarCaptacao} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between"><div><h2 className="text-xl font-bold">Programar captação</h2><p className="text-sm text-slate-500">Escolha o cliente e a pasta do mês</p></div><button type="button" onClick={() => setModalCaptacao(false)}><X /></button></div>
+            <div className="mt-6 grid gap-4">
+              <Campo titulo="Cliente"><select required className="campo bg-white" value={captacaoForm.cliente_id} onChange={(e) => setCaptacaoForm({ ...captacaoForm, cliente_id: e.target.value })}><option value="">Selecione...</option>{clientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nome} — {cliente.cidade}/{cliente.estado}</option>)}</select></Campo>
+              <Campo titulo="Mês da captação"><input required type="month" className="campo" value={captacaoForm.mes} onChange={(e) => setCaptacaoForm({ ...captacaoForm, mes: e.target.value })} /></Campo>
+              <Campo titulo="Observações"><textarea rows={3} className="w-full rounded-xl border p-3 text-sm outline-none focus:border-amber-500" placeholder="Ex.: Levar documentos do processo." value={captacaoForm.observacoes} onChange={(e) => setCaptacaoForm({ ...captacaoForm, observacoes: e.target.value })} /></Campo>
+            </div>
+            <div className="mt-6 flex justify-end gap-2 border-t pt-5"><button type="button" onClick={() => setModalCaptacao(false)} className="rounded-xl border px-4 py-2">Cancelar</button><button className="rounded-xl bg-[#b88b32] px-5 py-2 font-semibold text-white">Adicionar à pasta</button></div>
+          </form>
+        </div>
+      )}
       {modal && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4">
           <form
@@ -583,7 +643,6 @@ export default function ViagensPage() {
               )}
               {(
                 [
-                  "pedagios",
                   "combustivel",
                   "alimentacao",
                   "hospedagem",
