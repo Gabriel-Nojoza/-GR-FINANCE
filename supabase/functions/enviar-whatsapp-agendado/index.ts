@@ -63,6 +63,7 @@ Deno.serve(async (request) => {
         .from("mensagens_agendadas")
         .update({
           status: "Enviada",
+          status_entrega: "Enviada",
           enviada_em: new Date().toISOString(),
           whatsapp_message_id: retorno.key?.id ?? retorno.message?.key?.id ?? null,
           erro: null,

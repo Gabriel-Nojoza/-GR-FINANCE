@@ -7,6 +7,7 @@ import {
   Map,
   ContactRound,
   ReceiptText,
+  MessageCircleMore,
   Settings,
   Users,
   X,
@@ -19,6 +20,7 @@ const links = [
   { href: "/lancamentos", nome: "Lançamentos", icon: ReceiptText },
   { href: "/viagens", nome: "Viagens e rotas", icon: Map },
   { href: "/clientes", nome: "Clientes", icon: ContactRound },
+  { href: "/whatsapp", nome: "WhatsApp", icon: MessageCircleMore },
   { href: "/funcionarios", nome: "Funcionários", icon: Users },
 ];
 
