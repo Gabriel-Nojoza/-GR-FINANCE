@@ -2,12 +2,29 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// Origens permitidas: defina APP_ORIGINS (lista separada por vírgula) nos
+// secrets da função. Sem essa variável, cai no comportamento aberto ("*").
+const origensPermitidas = (Deno.env.get("APP_ORIGINS") ?? "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+function corsHeaders(request: Request) {
+  const origem = request.headers.get("Origin") ?? "";
+  const permitida = origensPermitidas.length === 0
+    ? "*"
+    : origensPermitidas.includes(origem)
+    ? origem
+    : origensPermitidas[0];
+  return {
+    "Access-Control-Allow-Origin": permitida,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Vary": "Origin",
+  };
+}
 
 Deno.serve(async (request) => {
+  const cors = corsHeaders(request);
   if (request.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   const authorization = request.headers.get("Authorization");

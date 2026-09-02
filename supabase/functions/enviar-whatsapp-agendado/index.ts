@@ -2,9 +2,21 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+// Comparação de tempo constante para não vazar o segredo por timing.
+function segredoIgual(a: string, b: string) {
+  const enc = new TextEncoder();
+  const x = enc.encode(a);
+  const y = enc.encode(b);
+  if (x.length !== y.length) return false;
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+
 Deno.serve(async (request) => {
   const cronSecret = Deno.env.get("CRON_SECRET");
-  if (!cronSecret || request.headers.get("x-cron-secret") !== cronSecret) {
+  const recebido = request.headers.get("x-cron-secret") ?? "";
+  if (!cronSecret || !segredoIgual(recebido, cronSecret)) {
     return new Response("Não autorizado", { status: 401 });
   }
 

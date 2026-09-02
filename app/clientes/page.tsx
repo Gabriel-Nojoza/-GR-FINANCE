@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { CalendarClock, Eye, Menu, Plus, Search, Trash2, X } from "lucide-react";
+import { CalendarClock, Eye, Menu, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Cliente, Lancamento, Viagem } from "@/lib/financeiro-types";
 import { supabase, supabaseConfigurado } from "@/lib/supabase";
@@ -56,6 +56,7 @@ export default function ClientesPage() {
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [viagens, setViagens] = useState<Viagem[]>([]);
   const [form, setForm] = useState(vazio);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
   const [modal, setModal] = useState(false);
   const [sidebar, setSidebar] = useState(false);
@@ -130,21 +131,62 @@ export default function ClientesPage() {
     };
   };
 
+  function abrirNovo() {
+    setEditandoId(null);
+    setForm(vazio);
+    setModal(true);
+  }
+
+  function abrirEdicao(cliente: Cliente) {
+    setEditandoId(cliente.id);
+    setForm({
+      nome: cliente.nome,
+      documento: cliente.documento,
+      email: cliente.email ?? "",
+      telefone: cliente.telefone ?? "",
+      aceita_whatsapp: cliente.aceita_whatsapp ?? false,
+      cep: cliente.cep ?? "",
+      endereco: cliente.endereco ?? "",
+      numero: cliente.numero ?? "",
+      complemento: cliente.complemento ?? "",
+      bairro: cliente.bairro ?? "",
+      cidade: cliente.cidade ?? "",
+      estado: cliente.estado ?? "",
+      observacoes: cliente.observacoes ?? "",
+      status: cliente.status,
+    });
+    setDetalhe(null);
+    setModal(true);
+  }
+
+  function fecharModal() {
+    setModal(false);
+    setEditandoId(null);
+    setForm(vazio);
+  }
+
   async function salvar(evento: FormEvent) {
     evento.preventDefault();
     if (!supabase || !form.nome.trim() || !form.documento.trim()) return;
     setMensagem("Salvando...");
-    const { error } = await supabase.from("clientes").insert({
+    const dados = {
       ...form,
       nome: form.nome.trim(),
       documento: form.documento.trim(),
       cidade: form.cidade.trim(),
       estado: form.estado.trim().toUpperCase(),
-    });
+    };
+    const { error } = editandoId
+      ? await supabase
+          .from("clientes")
+          .update({ ...dados, updated_at: new Date().toISOString() })
+          .eq("id", editandoId)
+      : await supabase.from("clientes").insert(dados);
     if (error) return setMensagem(error.message);
-    setForm(vazio);
-    setModal(false);
-    setMensagem("Cliente salvo com sucesso.");
+    fecharModal();
+    setMensagem(
+      editandoId ? "Cliente atualizado com sucesso." : "Cliente salvo com sucesso.",
+    );
     await carregar();
   }
 
@@ -212,7 +254,7 @@ export default function ClientesPage() {
               </div>
             </div>
             <button
-              onClick={() => setModal(true)}
+              onClick={abrirNovo}
               className="flex items-center gap-2 rounded-xl bg-[#b88b32] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#9f7529]"
             >
               <Plus size={18} /> Novo cliente
@@ -268,12 +310,20 @@ export default function ClientesPage() {
                         {moeda.format(gastosCliente(cliente.id).total)}
                       </td>
                       <td className="px-6 text-right">
-                        <button
-                          onClick={() => setDetalhe(cliente)}
-                          className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 hover:bg-slate-50"
-                        >
-                          <Eye size={16} /> Ver gastos
-                        </button>
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            onClick={() => abrirEdicao(cliente)}
+                            className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 hover:bg-slate-50"
+                          >
+                            <Pencil size={16} /> Editar
+                          </button>
+                          <button
+                            onClick={() => setDetalhe(cliente)}
+                            className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 hover:bg-slate-50"
+                          >
+                            <Eye size={16} /> Ver gastos
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -291,8 +341,8 @@ export default function ClientesPage() {
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4">
           <form onSubmit={salvar} className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6">
             <div className="mb-6 flex items-start justify-between">
-              <div><h2 className="text-xl font-bold">Novo cliente</h2><p className="text-sm text-slate-500">Dados pessoais, contato e endereço</p></div>
-              <button type="button" onClick={() => setModal(false)}><X /></button>
+              <div><h2 className="text-xl font-bold">{editandoId ? "Editar cliente" : "Novo cliente"}</h2><p className="text-sm text-slate-500">Dados pessoais, contato e endereço</p></div>
+              <button type="button" onClick={fecharModal}><X /></button>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Campo titulo="Nome/Razão social" duplo><input required className="campo" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></Campo>
@@ -310,7 +360,7 @@ export default function ClientesPage() {
               <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={form.aceita_whatsapp} onChange={(e) => setForm({ ...form, aceita_whatsapp: e.target.checked })} /> Cliente autoriza o recebimento de mensagens pelo WhatsApp</label>
               <Campo titulo="Observações" duplo><textarea rows={3} className="w-full rounded-xl border p-3 text-sm outline-none focus:border-amber-500" value={form.observacoes} onChange={(e) => setForm({ ...form, observacoes: e.target.value })} /></Campo>
             </div>
-            <div className="mt-6 flex justify-end gap-2 border-t pt-5"><button type="button" onClick={() => setModal(false)} className="rounded-xl border px-4 py-2">Cancelar</button><button className="rounded-xl bg-[#b88b32] px-5 py-2 font-semibold text-white hover:bg-[#9f7529]">Salvar cliente</button></div>
+            <div className="mt-6 flex justify-end gap-2 border-t pt-5"><button type="button" onClick={fecharModal} className="rounded-xl border px-4 py-2">Cancelar</button><button className="rounded-xl bg-[#b88b32] px-5 py-2 font-semibold text-white hover:bg-[#9f7529]">{editandoId ? "Salvar alterações" : "Salvar cliente"}</button></div>
           </form>
         </div>
       )}
@@ -352,7 +402,7 @@ export default function ClientesPage() {
                 {mensagensDoCliente.map((item) => <div key={item.id} className="flex flex-wrap justify-between gap-2 rounded-xl border bg-white p-3 text-sm"><span>{new Date(item.agendada_para).toLocaleString("pt-BR")} • {item.mensagem}</span><b className={item.status === "Enviada" ? "text-emerald-600" : item.status === "Erro" ? "text-red-600" : "text-amber-700"}>{item.status}</b></div>)}
               </div>
             </div>
-            <div className="mt-6 flex flex-wrap justify-between gap-3 border-t pt-5"><button onClick={() => excluir(detalhe)} className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm text-red-600 hover:bg-red-50"><Trash2 size={17} /> Excluir cliente</button><div className="flex gap-2">{numeroWhatsApp && detalhe.aceita_whatsapp && <a href={`https://wa.me/${numeroWhatsApp}`} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-600 px-5 py-2 text-white hover:bg-emerald-700">Enviar WhatsApp</a>}<button onClick={() => setDetalhe(null)} className="rounded-xl bg-[#07142e] px-5 py-2 text-white">Fechar</button></div></div>
+            <div className="mt-6 flex flex-wrap justify-between gap-3 border-t pt-5"><button onClick={() => excluir(detalhe)} className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm text-red-600 hover:bg-red-50"><Trash2 size={17} /> Excluir cliente</button><div className="flex gap-2"><button onClick={() => abrirEdicao(detalhe)} className="flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium hover:bg-slate-50"><Pencil size={16} /> Editar</button>{numeroWhatsApp && detalhe.aceita_whatsapp && <a href={`https://wa.me/${numeroWhatsApp}`} target="_blank" rel="noreferrer" className="rounded-xl bg-emerald-600 px-5 py-2 text-white hover:bg-emerald-700">Enviar WhatsApp</a>}<button onClick={() => setDetalhe(null)} className="rounded-xl bg-[#07142e] px-5 py-2 text-white">Fechar</button></div></div>
           </div>
         </div>
       )}

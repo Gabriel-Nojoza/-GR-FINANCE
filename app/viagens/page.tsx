@@ -8,13 +8,13 @@ import {
   FileText,
   Folder,
   Menu,
-  Paperclip,
   Plus,
   Search,
   Trash2,
   X,
 } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
+import { LinkComprovante } from "@/components/link-comprovante";
 import { exportarExcel, exportarPdf } from "@/lib/exportar";
 import { Cliente, FuncionarioResumo, Viagem } from "@/lib/financeiro-types";
 import {
@@ -485,15 +485,7 @@ export default function ViagensPage() {
                         {moeda.format(custoTotal(v))}
                       </td>
                       <td className="px-4">
-                        {v.comprovante_url && (
-                          <a
-                            href={v.comprovante_url}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            <Paperclip size={16} />
-                          </a>
-                        )}
+                        <LinkComprovante valor={v.comprovante_url} />
                         <button
                           onClick={() => excluir(v.id)}
                           className="ml-3 text-red-500"

@@ -14,9 +14,21 @@ const textoMensagem = (data: any) => {
     data?.body ?? data?.text ?? "";
 };
 
+// Comparação de tempo constante para não vazar o segredo por timing.
+function segredoIgual(a: string, b: string) {
+  const enc = new TextEncoder();
+  const x = enc.encode(a);
+  const y = enc.encode(b);
+  if (x.length !== y.length) return false;
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+
 Deno.serve(async (request) => {
   const segredo = Deno.env.get("EVOLUTION_WEBHOOK_SECRET");
-  if (!segredo || request.headers.get("x-webhook-secret") !== segredo) {
+  const recebido = request.headers.get("x-webhook-secret") ?? "";
+  if (!segredo || !segredoIgual(recebido, segredo)) {
     return new Response("Não autorizado", { status: 401 });
   }
 

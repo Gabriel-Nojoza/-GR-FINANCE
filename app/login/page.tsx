@@ -119,7 +119,7 @@ export default function LoginPage() {
               <input
                 type={mostrarSenha ? "text" : "password"}
                 required
-                minLength={6}
+                minLength={8}
                 autoComplete="current-password"
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}

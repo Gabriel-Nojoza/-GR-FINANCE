@@ -5,13 +5,13 @@ import {
   Download,
   FileText,
   Menu,
-  Paperclip,
   Plus,
   Search,
   Trash2,
   X,
 } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
+import { LinkComprovante } from "@/components/link-comprovante";
 import { exportarExcel, exportarPdf } from "@/lib/exportar";
 import {
   Categoria,
@@ -380,15 +380,7 @@ export default function LancamentosPage() {
                         {moeda.format(i.valor)}
                       </td>
                       <td className="px-4">
-                        {i.comprovante_url && (
-                          <a
-                            href={i.comprovante_url}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            <Paperclip size={16} />
-                          </a>
-                        )}
+                        <LinkComprovante valor={i.comprovante_url} />
                         <button
                           onClick={() => excluir(i.id)}
                           className="ml-3 text-red-500"

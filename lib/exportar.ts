@@ -5,7 +5,12 @@ type Linha = Record<string, string | number | boolean | null | undefined>
 export function exportarExcel(nome: string, linhas: Linha[]) {
   if (!linhas.length) return
   const colunas = Object.keys(linhas[0])
-  const escapar = (valor: Linha[string]) => `"${String(valor ?? "").replaceAll('"', '""')}"`
+  const escapar = (valor: Linha[string]) => {
+    let texto = String(valor ?? "")
+    // Neutraliza injeção de fórmula (CSV injection) ao abrir na planilha.
+    if (/^[=+\-@\t\r]/.test(texto)) texto = `'${texto}`
+    return `"${texto.replaceAll('"', '""')}"`
+  }
   const csv = [colunas.map(escapar).join(";"), ...linhas.map((linha) => colunas.map((coluna) => escapar(linha[coluna])).join(";"))].join("\r\n")
   const blob = new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" })
   const url = URL.createObjectURL(blob)
