@@ -29,6 +29,26 @@ Deno.serve(async (request) => {
   }
 
   const headers = { apikey: apiKey, "Content-Type": "application/json" };
+  const corpo = await request.json().catch(() => ({}));
+
+  if (corpo.acao === "desconectar") {
+    const logout = await fetch(
+      `${url}/instance/logout/${encodeURIComponent(instancia)}`,
+      { method: "DELETE", headers },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    const verificacao = await fetch(
+      `${url}/instance/connectionState/${encodeURIComponent(instancia)}`,
+      { headers },
+    );
+    const estadoDepois = await verificacao.json().catch(() => ({}));
+    const estadoAtual = estadoDepois.instance?.state ?? estadoDepois.state ?? "close";
+    if (!logout.ok && estadoAtual === "open") {
+      return Response.json({ error: "Não foi possível desconectar o WhatsApp" }, { status: logout.status, headers: cors });
+    }
+    return Response.json({ estado: estadoAtual, instancia, conectado: false }, { headers: cors });
+  }
+
   const estadoResposta = await fetch(
     `${url}/instance/connectionState/${encodeURIComponent(instancia)}`,
     { headers },
@@ -56,4 +76,3 @@ Deno.serve(async (request) => {
     { status: qrResposta.ok ? 200 : qrResposta.status, headers: cors },
   );
 });
-

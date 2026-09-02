@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { CheckCheck, CircleAlert, Clock3, Menu, MessageCircleMore, RefreshCw, Search, Send, Smartphone } from "lucide-react";
+import { CheckCheck, CircleAlert, Clock3, LogOut, Menu, MessageCircleMore, RefreshCw, Search, Send, Smartphone } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { supabase, supabaseConfigurado } from "@/lib/supabase";
 
@@ -44,6 +44,16 @@ export default function WhatsAppPage() {
     if (error) setErro(error.message); else setConexao(data as Conexao);
     setCarregandoConexao(false);
   }, []);
+
+  async function desconectar() {
+    if (!supabase || !confirm("Desconectar o WhatsApp do escritório? Os envios ficarão parados até ler um novo QR Code.")) return;
+    setCarregandoConexao(true);
+    setErro("");
+    const { data, error } = await supabase.functions.invoke("evolution-conexao", { body: { acao: "desconectar" } });
+    if (error) setErro(error.message); else setConexao(data as Conexao);
+    setCarregandoConexao(false);
+    if (!error) window.setTimeout(() => void carregarConexao(), 1000);
+  }
 
   useEffect(() => {
     if (!supabase) return;
@@ -91,6 +101,7 @@ export default function WhatsAppPage() {
           <div className="rounded-2xl border bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between"><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><Smartphone size={22} /></span><div><h2 className="font-bold">WhatsApp do escritório</h2><p className="text-sm text-slate-500">Instância gr-finance</p></div></div><span className={`h-3 w-3 rounded-full ${conexao?.conectado ? "bg-emerald-500" : "bg-red-500"}`} /></div>
             <div className={`mt-5 rounded-xl p-3 text-sm font-medium ${conexao?.conectado ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>{carregandoConexao ? "Consultando conexão..." : conexao?.conectado ? "Conectado e pronto para enviar" : "Desconectado — leia o QR Code"}</div>
+            {conexao?.conectado && <button onClick={desconectar} disabled={carregandoConexao} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"><LogOut size={16} /> Desconectar WhatsApp</button>}
             {!conexao?.conectado && conexao?.qrcode && <div className="mt-4 text-center">
               <Image src={conexao.qrcode} alt="QR Code do WhatsApp" width={256} height={256} unoptimized className="mx-auto w-64 rounded-xl border bg-white p-2" />
               <p className="mt-3 text-xs text-slate-500">WhatsApp → Aparelhos conectados → Conectar aparelho</p>
